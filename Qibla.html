@@ -1,19 +1,133 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Qibla Direction</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Qibla Compass</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 50px;
+      background-color: #f0f0f0;
+    }
+
+    h1 {
+      margin-bottom: 30px;
+      color: #333;
+    }
+
+    #compass-container {
+      width: 250px;
+      height: 250px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    #compass {
+      width: 100%;
+      height: 100%;
+      background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Compass_rose_pale.svg/1024px-Compass_rose_pale.svg.png');
+      background-size: cover;
+      transform: rotate(0deg);
+      transition: transform 1s ease-in-out;
+    }
+
+    #arrow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 4px;
+      height: 100px;
+      background: red;
+      transform-origin: bottom center;
+      transform: translate(-50%, -100%) rotate(0deg);
+      transition: transform 1s ease-in-out;
+    }
+
+    .info {
+      margin-top: 20px;
+      color: #444;
+    }
+  </style>
 </head>
 <body>
-  <h1 class="title">Find Qibla Direction</h1>
+  <h1>Qibla Compass</h1>
   <div id="compass-container">
-    <img id="compass" src="compass.png" alt="Compass" />
-    <div id="needle"></div>
+    <div id="compass"></div>
+    <div id="arrow"></div>
   </div>
-  <p id="status">Allow location access to detect Qibla direction.</p>
-  <script src="script.js"></script>
+  <div class="info" id="status">Fetching your location...</div>
+
+  <script>
+    const KAABA_LAT = 21.4225;
+    const KAABA_LON = 39.8262;
+
+    function toRadians(deg) {
+      return deg * Math.PI / 180;
+    }
+
+    function toDegrees(rad) {
+      return rad * 180 / Math.PI;
+    }
+
+    function calculateQiblaDirection(lat, lon) {
+      const phiK = toRadians(KAABA_LAT);
+      const lambdaK = toRadians(KAABA_LON);
+      const phi = toRadians(lat);
+      const lambda = toRadians(lon);
+
+      const qibla =
+        Math.atan2(
+          Math.sin(lambdaK - lambda),
+          Math.cos(phi) * Math.tan(phiK) - Math.sin(phi) * Math.cos(lambdaK - lambda)
+        );
+
+      return (toDegrees(qibla) + 360) % 360;
+    }
+
+    function updateCompass(qiblaDirection) {
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener("deviceorientationabsolute" in window ? "deviceorientationabsolute" : "deviceorientation", function (event) {
+          let alpha = event.alpha;
+
+          if (typeof alpha === "undefined") {
+            document.getElementById("status").innerText = "Device does not support orientation.";
+            return;
+          }
+
+          let heading = 360 - alpha;
+          let direction = (qiblaDirection - heading + 360) % 360;
+
+          document.getElementById("compass").style.transform = `rotate(${heading}deg)`;
+          document.getElementById("arrow").style.transform = `translate(-50%, -100%) rotate(${direction}deg)`;
+        }, true);
+      } else {
+        document.getElementById("status").innerText = "Device orientation not supported.";
+      }
+    }
+
+    function initQiblaCompass() {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          function (position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const qiblaDir = calculateQiblaDirection(lat, lon);
+
+            updateCompass(qiblaDir);
+            document.getElementById("status").innerText = `Your Qibla direction is set. Move your phone to align.`;
+          },
+          function () {
+            document.getElementById("status").innerText = "Location access denied.";
+          }
+        );
+      } else {
+        document.getElementById("status").innerText = "Geolocation is not available.";
+      }
+    }
+
+    initQiblaCompass();
+  </script>
 </body>
 </html>
